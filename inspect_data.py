@@ -32,7 +32,7 @@ def inspect_data(file_path):
     
     # Numerical, categorical, ordinal-looking, and suspicious columns
     numerical_columns = df.select_dtypes(include=[np.number]).columns
-    categorical_columns = df.select_dtypes(include=[np.object]).columns
+    categorical_columns = df.select_dtypes(include=["object", "string", "category"]).columns
     ordinal_columns = df.select_dtypes(include=[np.number]).apply(lambda x: x.nunique() < 10).index
     suspicious_columns = df.select_dtypes(include=[np.number]).apply(lambda x: x.nunique() > 100).index
     
