@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 def inspect_data(file_path):
     # Load the dataset
@@ -21,7 +19,9 @@ def inspect_data(file_path):
     print(f"Target distribution:\n{df[target].describe()}")
     
     # Missing values
-    print(f"Missing values:\n{df.isnull().sum()}")
+    print("Columns with missing values:")
+    missing_values = df.isnull().sum().sort_values(ascending=False)
+    print(missing_values)
     
     # Unique values
     print(f"Unique values:\n{df.nunique()}")
@@ -40,20 +40,6 @@ def inspect_data(file_path):
     print(f"Categorical columns: {categorical_columns}")
     print(f"Ordinal columns: {ordinal_columns}")
     print(f"Suspicious columns: {suspicious_columns}")
-    
-    # Check for obvious data quality issues and potential target leakage
-    # This is a simple check and may need to be expanded based on the dataset
-    print("Checking for obvious data quality issues and potential target leakage...")
-    # Example: Check for outliers in numerical columns
-    for col in numerical_columns:
-        plt.figure(figsize=(10, 6))
-        sns.boxplot(x=df[col])
-        plt.title(f"Boxplot of {col}")
-        plt.show()
-    
-    # Example: Check for missing values in categorical columns
-    for col in categorical_columns:
-        print(f"Missing values in {col}: {df[col].isnull().sum()}")
 
 if __name__ == '__main__':
     inspect_data('train.csv')
