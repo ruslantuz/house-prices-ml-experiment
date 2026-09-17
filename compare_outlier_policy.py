@@ -70,10 +70,21 @@ def build_model(model_name, numerical_cols, categorical_cols):
 
 
 def calculate_metrics(y_true, y_pred):
+    invalid_predictions = y_pred <= -1
+    if np.any(invalid_predictions):
+        raise ValueError(
+            "Cannot calculate Log RMSE because one or more predictions are "
+            f"<= -1 (count: {invalid_predictions.sum()}, "
+            f"minimum: {y_pred.min():.6f})."
+        )
+
     return {
         "mae": mean_absolute_error(y_true, y_pred),
         "rmse": np.sqrt(mean_squared_error(y_true, y_pred)),
         "r2": r2_score(y_true, y_pred),
+        "log_rmse": np.sqrt(
+            mean_squared_error(np.log1p(y_true), np.log1p(y_pred))
+        ),
     }
 
 
@@ -126,7 +137,8 @@ def compare_outlier_policy():
 
             print(
                 f"  {name}: MAE {metrics['mae']:.2f} | "
-                f"RMSE {metrics['rmse']:.2f} | R² {metrics['r2']:.2f}"
+                f"RMSE {metrics['rmse']:.2f} | R² {metrics['r2']:.2f} | "
+                f"Log RMSE {metrics['log_rmse']:.4f}"
             )
 
             if fold == 3:
@@ -139,18 +151,21 @@ def compare_outlier_policy():
     print("\nOverall Comparison:")
     print(
         f"{'Configuration':<25} {'MAE (mean ± std)':>23} "
-        f"{'RMSE (mean ± std)':>24} {'R² (mean ± std)':>20}"
+        f"{'RMSE (mean ± std)':>24} {'R² (mean ± std)':>20} "
+        f"{'Log RMSE (mean ± std)':>25}"
     )
     for name, _, _ in configurations:
         metrics = results[name]
         maes = [metric["mae"] for metric in metrics]
         rmses = [metric["rmse"] for metric in metrics]
         r2_scores = [metric["r2"] for metric in metrics]
+        log_rmses = [metric["log_rmse"] for metric in metrics]
         print(
             f"{name:<25} "
             f"{np.mean(maes):.2f} ± {np.std(maes):.2f}  "
             f"{np.mean(rmses):.2f} ± {np.std(rmses):.2f}  "
-            f"{np.mean(r2_scores):.2f} ± {np.std(r2_scores):.2f}"
+            f"{np.mean(r2_scores):.2f} ± {np.std(r2_scores):.2f}  "
+            f"{np.mean(log_rmses):.4f} ± {np.std(log_rmses):.4f}"
         )
 
     print("\nFold 3 Diagnostics (out-of-fold validation predictions only):")
