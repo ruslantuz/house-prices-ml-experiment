@@ -64,6 +64,9 @@ def cross_validate_log_target():
     r2_scores = []
     log_rmse_scores = []
 
+    # Store validation data for fold 3 diagnosis
+    fold3_data = []
+
     for fold, (train_idx, val_idx) in enumerate(kfold.split(X), start=1):
         X_train_fold, X_val_fold = X.iloc[train_idx], X.iloc[val_idx]
         y_train_fold, y_val_fold = y.iloc[train_idx], y.iloc[val_idx]
@@ -87,6 +90,16 @@ def cross_validate_log_target():
         # Calculate RMSE in log space
         y_val_fold_log = np.log1p(y_val_fold)
         rmse_log = mean_squared_error(y_val_fold_log, y_pred_log) ** 0.5
+
+        # Store validation data for fold 3 diagnosis
+        if fold == 3:
+            fold3_data.append({
+                'original_index': df.index[val_idx],
+                'actual': y_val_fold,
+                'predicted': y_pred,
+                'actual_log': y_val_fold_log,
+                'predicted_log': y_pred_log,
+            })
 
         # Print metrics for this fold
         print(f"Fold {fold}:")
@@ -117,6 +130,31 @@ def cross_validate_log_target():
     print(f"Mean RMSE: {mean_rmse:.2f} ± {std_rmse:.2f}")
     print(f"Mean R²: {mean_r2:.4f} ± {std_r2:.4f}")
     print(f"Mean Log RMSE: {mean_log_rmse:.4f} ± {std_log_rmse:.4f}")
+
+    # Print fold 3 diagnosis
+    if fold3_data:
+        print("\nFold 3 Diagnosis - Top 10 Largest Absolute Errors:")
+        print("-" * 80)
+        
+        # Create dataframe for sorting
+        fold3_df = pd.DataFrame(fold3_data)
+        
+        # Calculate absolute errors
+        fold3_df['abs_error'] = fold3_df['predicted'] - fold3_df['actual']
+        fold3_df['abs_error'] = fold3_df['abs_error'].abs()
+        
+        # Sort by absolute error descending
+        fold3_df = fold3_df.sort_values('abs_error', ascending=False)
+        
+        # Print top 10
+        for idx, row in fold3_df.head(10).iterrows():
+            print(f"Index: {row['original_index']}")
+            print(f"  Actual SalePrice: {row['actual']:.2f}")
+            print(f"  Predicted SalePrice: {row['predicted']:.2f}")
+            print(f"  Absolute Error: {row['abs_error']:.2f}")
+            print(f"  Actual log1p(SalePrice): {row['actual_log']:.4f}")
+            print(f"  Predicted log SalePrice: {row['predicted_log']:.4f}")
+            print("-" * 80)
 
 
 if __name__ == "__main__":
