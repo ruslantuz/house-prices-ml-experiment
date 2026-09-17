@@ -1209,29 +1209,324 @@ No hyperparameter tuning or feature engineering has yet been applied to either n
 
 ---
 
-# Next Experiment
+# 11. XGBoost — Log-Target Experiment
 
-The next controlled experiment will test:
+## Hypothesis
 
-```text
-XGBoost
-+ log1p(SalePrice)
+`SalePrice` is strongly right-skewed, and previous experiments showed that extreme prediction errors can dominate RMSE.
+
+Training XGBoost on `log1p(SalePrice)` may reduce the influence of expensive or unusual observations and improve stability.
+
+The hypothesis was:
+
+> Training XGBoost in log-target space may improve overall predictive performance and reduce the extreme overpredictions observed on the difficult Fold 3 observations.
+
+This experiment changed only the target representation.
+
+No feature engineering, outlier removal, or hyperparameter tuning was introduced.
+
+## Experiment Design
+
+The experiment used the same configuration as the raw-target XGBoost baseline.
+
+Features:
+
+* `SalePrice` excluded from `X`
+* `Id` removed
+* same numerical features
+* same categorical features
+
+Cross-validation:
+
+```python
+KFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42
+)
 ```
 
-while keeping unchanged:
+Numerical preprocessing:
 
-* cross-validation folds,
-* preprocessing,
-* model parameters,
-* features,
-* outlier policy,
-* and absence of feature engineering.
+* median imputation
+* no scaling
 
-This experiment is motivated by two observations:
+Categorical preprocessing:
 
-1. `SalePrice` is strongly right-skewed.
-2. The previous XGBoost project suggested that log-target training may work particularly well for this dataset.
+* most-frequent imputation
+* one-hot encoding with unknown-category handling
 
-The experiment will determine whether a log target improves XGBoost's typical performance and whether it reduces or amplifies errors on the known high-leverage observations.
+Model:
 
-No model tuning or feature engineering should be introduced until this target-transformation comparison is complete.
+```python
+XGBRegressor(
+    objective="reg:squarederror",
+    random_state=42,
+    n_jobs=-1
+)
+```
+
+The only experimental change was target handling:
+
+```python
+y_train_log = np.log1p(y_train)
+```
+
+The model was trained and predicted in log space.
+
+Predictions were converted back to dollars using:
+
+```python
+y_pred = np.expm1(y_pred_log)
+```
+
+Dollar-scale MAE, RMSE, and R² were calculated after converting predictions back to the original `SalePrice` scale.
+
+Log RMSE was calculated directly in log space.
+
+## Results
+
+### Fold-Level Results
+
+| Fold |       MAE |      RMSE |   R² | Log RMSE |
+| ---- | --------: | --------: | ---: | -------: |
+| 1    | 17,175.15 | 26,259.47 | 0.91 |   0.1447 |
+| 2    | 19,072.40 | 38,749.92 | 0.78 |   0.1457 |
+| 3    | 20,117.45 | 41,971.67 | 0.68 |   0.1741 |
+| 4    | 18,268.72 | 29,961.79 | 0.86 |   0.1479 |
+| 5    | 15,533.46 | 24,183.12 | 0.89 |   0.1219 |
+
+### Overall Results
+
+| Metric   |      Mean | Standard Deviation |
+| -------- | --------: | -----------------: |
+| MAE      | 18,033.43 |           1,578.89 |
+| RMSE     | 32,225.19 |           6,970.70 |
+| R²       |      0.82 |               0.08 |
+| Log RMSE |    0.1469 |             0.0166 |
+
+## Raw vs. Log-Target XGBoost
+
+| Metric |               Raw Target |           Log Target |
+| ------ | -----------------------: | -------------------: |
+| MAE    | **17,550.49 ± 1,335.94** | 18,033.43 ± 1,578.89 |
+| RMSE   | **31,338.53 ± 7,201.69** | 32,225.19 ± 6,970.70 |
+| R²     |          **0.83 ± 0.10** |          0.82 ± 0.08 |
+
+The log-target transformation did not improve overall dollar-scale performance.
+
+Compared with raw-target XGBoost:
+
+* MAE increased by approximately $483.
+* RMSE increased by approximately $887.
+* mean R² decreased slightly from 0.83 to 0.82.
+* RMSE variability decreased slightly.
+
+Therefore, raw-target XGBoost remained the stronger XGBoost configuration on the main dollar-scale metrics.
+
+## Fold 3 Diagnostics
+
+The diagnostic predictions were taken directly from the saved Fold 3 out-of-fold predictions.
+
+### Observation 1298
+
+* Actual SalePrice: $160,000
+* Raw XGBoost prediction: $606,205
+* Log-target XGBoost prediction: $495,210
+* Log-target absolute error: $335,210
+* Actual `log1p(SalePrice)`: 11.9829
+* Predicted log SalePrice: 13.1127
+
+### Observation 523
+
+* Actual SalePrice: $184,750
+* Raw XGBoost prediction: $671,884
+* Log-target XGBoost prediction: $639,674
+* Log-target absolute error: $454,924
+* Actual `log1p(SalePrice)`: 12.1268
+* Predicted log SalePrice: 13.3687
+
+### Observation 1324
+
+* Actual SalePrice: $147,000
+* Raw XGBoost prediction: $286,745
+* Log-target XGBoost prediction: $303,343
+* Log-target absolute error: $156,343
+* Actual `log1p(SalePrice)`: 11.8982
+* Predicted log SalePrice: 12.6226
+
+## Comparison on Difficult Observations
+
+| Index |   Actual | Raw XGBoost Error | Log XGBoost Error | Random Forest Error |
+| ----- | -------: | ----------------: | ----------------: | ------------------: |
+| 1298  | $160,000 |          $446,205 |          $335,210 |        **$114,249** |
+| 523   | $184,750 |          $487,134 |          $454,924 |        **$112,161** |
+| 1324  | $147,000 |      **$139,745** |          $156,343 |         **$60,417** |
+
+The log transformation reduced the extreme XGBoost errors for indices 1298 and 523.
+
+However, it did not solve the underlying problem, and observation 1324 became slightly worse.
+
+Random Forest remained substantially more robust on all three observations.
+
+## Interpretation
+
+The hypothesis was only partially supported.
+
+Training XGBoost in log space reduced some of the extreme Fold 3 overpredictions.
+
+In particular:
+
+* the error on index 1298 decreased by approximately $111,000,
+* the error on index 523 decreased by approximately $32,000.
+
+Fold 3 also improved:
+
+* RMSE decreased from approximately $45,093 to $41,972,
+* R² increased from 0.63 to 0.68.
+
+However, these improvements did not translate into better overall cross-validation performance.
+
+Across all five folds, raw-target XGBoost retained better:
+
+* MAE,
+* RMSE,
+* and R².
+
+The log transformation therefore introduced a tradeoff:
+
+> It slightly reduced sensitivity to some extreme observations, but worsened average dollar-scale predictive performance.
+
+This behavior also differed from the earlier log-target Ridge experiment.
+
+With Ridge, extreme log-space predictions were strongly amplified by `expm1()`, producing catastrophic multi-million-dollar predictions.
+
+XGBoost remained much more controlled in log space, but the transformation still did not outperform the raw-target version.
+
+## Conclusion
+
+The log-target transformation was not adopted as the preferred XGBoost configuration.
+
+Raw-target XGBoost remains the strongest XGBoost baseline because it provides better overall dollar-scale performance.
+
+The experiment was still useful because it demonstrated that target transformation can change robustness independently of average predictive accuracy.
+
+---
+
+# Updated Model Comparison
+
+| Experiment               |                MAE |               RMSE |              R² | Main Finding                                |
+| ------------------------ | -----------------: | -----------------: | --------------: | ------------------------------------------- |
+| Dummy median             |             59,568 |             88,667 |          -0.025 | Performance floor                           |
+| Ridge, single holdout    |             20,572 |             34,566 |           0.844 | Strong initial linear model                 |
+| Ridge, raw-target CV     |     20,163 ± 2,291 |    35,717 ± 11,907 |   0.765 ± 0.191 | Revealed fold instability                   |
+| Ridge, log-target CV     |     19,830 ± 6,018 |    63,083 ± 72,812 |  -0.664 ± 3.108 | `expm1` amplified extreme predictions       |
+| Scaled Ridge, log target |     17,721 ± 4,425 |    55,665 ± 63,635 |  -0.282 ± 2.385 | Scaling helped, extreme rows remained       |
+| Scaled Ridge, raw target |       18,479 ± 924 |    33,620 ± 10,353 |   0.794 ± 0.161 | Strongest stable Ridge                      |
+| Random Forest            |     17,846 ± 1,819 | **30,274 ± 7,335** | **0.84 ± 0.10** | Best RMSE and extreme-row robustness        |
+| Raw-target XGBoost       | **17,550 ± 1,336** |     31,339 ± 7,202 |     0.83 ± 0.10 | Best mean MAE                               |
+| Log-target XGBoost       |     18,033 ± 1,579 |     32,225 ± 6,971 |     0.82 ± 0.08 | More robust on some extremes, worse overall |
+
+---
+
+# Updated Key Lessons
+
+## Target transformations are model-dependent
+
+A log-target transformation does not automatically improve a regression model simply because the target is right-skewed.
+
+For Ridge, the transformation produced severe instability when extreme log predictions were converted back with `expm1()`.
+
+For XGBoost, the transformation was much more stable and reduced some extreme errors, but still produced worse overall dollar-scale performance.
+
+Target transformations therefore need to be evaluated empirically for each model family.
+
+## Model family matters for extreme observations
+
+The difficult observations behaved very differently across models.
+
+Ridge produced severe extrapolation.
+
+Raw and log-target XGBoost still substantially overpredicted the two most extreme houses.
+
+Random Forest handled the same observations much more conservatively.
+
+Model architecture therefore has a large effect on behavior outside the typical feature distribution.
+
+## No single metric is sufficient
+
+Raw-target XGBoost currently has the best mean MAE.
+
+Random Forest currently has the best RMSE and R² and the smallest errors on the known extreme observations.
+
+This difference is meaningful.
+
+MAE reflects typical absolute error, while RMSE strongly penalizes rare large mistakes.
+
+Both are required to understand the current models.
+
+## Difficult observations should not be deleted automatically
+
+Changing the model family and target representation substantially changed the predictions for the problematic rows.
+
+This confirms that poor performance on these observations is partly a modeling issue rather than sufficient evidence that the observations should be removed.
+
+Outlier removal should therefore be tested as a separate controlled experiment rather than applied retroactively because certain rows produced large errors.
+
+---
+
+# Current Status
+
+The project has now compared:
+
+1. linear regression with Ridge,
+2. Ridge with numerical scaling,
+3. log-target Ridge,
+4. Random Forest,
+5. raw-target XGBoost,
+6. log-target XGBoost.
+
+The current strongest configurations are:
+
+### Lowest mean MAE
+
+```text
+Raw-target XGBoost
+MAE: 17,550 ± 1,336
+```
+
+### Lowest mean RMSE
+
+```text
+Random Forest
+RMSE: 30,274 ± 7,335
+```
+
+### Highest mean R²
+
+```text
+Random Forest
+R²: 0.84 ± 0.10
+```
+
+### Strongest robustness on known extreme observations
+
+```text
+Random Forest
+```
+
+No hyperparameter tuning or feature engineering has yet been applied to the nonlinear models.
+
+---
+
+# Next Question
+
+The remaining extreme observations raise an important modeling question:
+
+> Are these observations legitimate examples that the models should learn to handle, or does a defensible outlier policy improve generalization for the intended prediction population?
+
+The next stage should test an explicit outlier policy as a controlled experiment.
+
+The policy must be defined using a reproducible rule rather than simply deleting individual rows because they produced large validation errors.
+
+The experiment should compare the same model and validation framework with and without the policy before deciding whether any observations should be excluded.
