@@ -97,10 +97,10 @@ def cross_validate_log_target():
                 fold3_data.append({
                     'original_index': df.index[idx],
                     'actual': y_val_fold.iloc[i],
-                    'predicted': y_pred.iloc[i],
-                    'absolute_error': abs(y_pred.iloc[i] - y_val_fold.iloc[i]),
+                    'predicted': y_pred[i],
+                    'absolute_error': abs(y_pred[i] - y_val_fold.iloc[i]),
                     'actual_log': y_val_fold_log.iloc[i],
-                    'predicted_log': y_pred_log.iloc[i],
+                    'predicted_log': y_pred_log[i],
                 })
 
         # Print metrics for this fold
