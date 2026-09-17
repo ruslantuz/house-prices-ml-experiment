@@ -64,7 +64,7 @@ def cross_validate_log_target():
     r2_scores = []
     log_rmse_scores = []
 
-    for train_idx, val_idx in kfold.split(X):
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(X), start=1):
         X_train_fold, X_val_fold = X.iloc[train_idx], X.iloc[val_idx]
         y_train_fold, y_val_fold = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -87,6 +87,13 @@ def cross_validate_log_target():
         # Calculate RMSE in log space
         y_val_fold_log = np.log1p(y_val_fold)
         rmse_log = mean_squared_error(y_val_fold_log, y_pred_log) ** 0.5
+
+        # Print metrics for this fold
+        print(f"Fold {fold}:")
+        print(f"  MAE: {mae:.2f}")
+        print(f"  RMSE: {rmse:.2f}")
+        print(f"  R²: {r2:.4f}")
+        print(f"  Log RMSE: {rmse_log:.4f}")
 
         mae_scores.append(mae)
         rmse_scores.append(rmse)
