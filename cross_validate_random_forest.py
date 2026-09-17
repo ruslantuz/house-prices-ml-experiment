@@ -19,7 +19,7 @@ def cross_validate_random_forest():
     df = load_data('train.csv')
     
     # Separate features and target
-    X = df.drop('SalePrice', axis=1)
+    X = df.drop(columns=['SalePrice', 'Id'])
     y = df['SalePrice']
     
     # Identify numerical and categorical columns
@@ -54,6 +54,11 @@ def cross_validate_random_forest():
     
     # Store results
     fold_results = []
+
+    # Saved exclusively from the Fold 3 validation iteration.
+    fold_3_indices = None
+    fold_3_y_val = None
+    fold_3_y_pred = None
     
     for fold, (train_idx, test_idx) in enumerate(kfold.split(X), 1):
         X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
@@ -74,6 +79,11 @@ def cross_validate_random_forest():
             'rmse': rmse,
             'r2': r2
         })
+
+        if fold == 3:
+            fold_3_indices = X_test.index.to_numpy().copy()
+            fold_3_y_val = y_test.copy()
+            fold_3_y_pred = y_pred.copy()
         
         # Print fold results
         print(f"Fold {fold}:")
@@ -98,23 +108,21 @@ def cross_validate_random_forest():
     print(f"Mean RMSE ± std: {mean_rmse:.2f} ± {std_rmse:.2f}")
     print(f"Mean R² ± std: {mean_r2:.2f} ± {std_r2:.2f}")
     
-    # Fold 3 diagnostics
-    fold_3_idx = [1298, 523, 1324]
-    
-    # Get the model from the last fold
-    final_model = model
-    
-    # Re-run on full data to get final predictions for diagnostics
-    final_model.fit(X, y)
-    y_pred_full = final_model.predict(X)
-    
+    # Fold 3 diagnostics use only the saved out-of-fold validation predictions.
     print("\nFold 3 Diagnostics:")
-    
-    for idx in fold_3_idx:
-        actual = y.iloc[idx]
-        predicted = y_pred_full[idx]  # Fixed: use [] instead of .iloc[] for numpy array
+
+    for idx in [1298, 523, 1324]:
+        positions = np.where(fold_3_indices == idx)[0]
+
+        if len(positions) == 0:
+            print(f"Index {idx} was not present in Fold 3 validation.")
+            continue
+
+        pos = positions[0]
+        actual = fold_3_y_val.iloc[pos]
+        predicted = fold_3_y_pred[pos]
         error = abs(actual - predicted)
-        
+
         print(f"Index {idx}:")
         print(f"  Actual SalePrice: {actual:.2f}")
         print(f"  Predicted SalePrice: {predicted:.2f}")

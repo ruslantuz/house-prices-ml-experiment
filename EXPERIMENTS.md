@@ -830,7 +830,7 @@ The next phase should determine whether nonlinear models can preserve strong typ
 
 
 
-# 9. Random Forest — Nonlinear Baseline
+# 9. Random Forest — Nonlinear Baseline (Corrected)
 
 ## Hypothesis
 
@@ -887,24 +887,30 @@ RandomForestRegressor(
 
 No hyperparameter tuning, outlier removal, target transformation, or feature engineering was performed.
 
+## Methodology Correction
+
+The original Random Forest implementation accidentally retained `Id` as a numerical feature. Its section labeled “Fold 3 Diagnostics” also refit the model on the full dataset and reported in-sample predictions rather than Fold 3 out-of-fold predictions.
+
+The corrected implementation drops `Id` and captures predictions directly during Fold 3 validation. The corrected results below replace the earlier Random Forest numbers; the earlier values are not valid comparison results.
+
 ## Results
 
 ### Fold-Level Results
 
 | Fold |       MAE |      RMSE |   R² |
 | ---- | --------: | --------: | ---: |
-| 1    | 17,636.21 | 29,266.74 | 0.89 |
-| 2    | 17,250.21 | 25,766.75 | 0.90 |
-| 3    | 21,040.15 | 44,457.31 | 0.64 |
-| 4    | 17,898.03 | 28,053.88 | 0.87 |
-| 5    | 15,407.25 | 23,824.64 | 0.89 |
+| 1    | 17,567.06 | 29,107.80 | 0.89 |
+| 2    | 17,198.17 | 25,996.57 | 0.90 |
+| 3    | 20,888.49 | 44,158.02 | 0.65 |
+| 4    | 17,694.34 | 27,933.19 | 0.88 |
+| 5    | 15,330.23 | 23,775.56 | 0.89 |
 
 ### Overall Results
 
 | Metric |      Mean | Standard Deviation |
 | ------ | --------: | -----------------: |
-| MAE    | 17,846.37 |           1,819.44 |
-| RMSE   | 30,273.87 |           7,335.11 |
+| MAE    | 17,735.66 |           1,791.40 |
+| RMSE   | 30,194.23 |           7,212.48 |
 | R²     |      0.84 |               0.10 |
 
 ## Comparison with Scaled Raw-Target Ridge
@@ -912,9 +918,9 @@ No hyperparameter tuning, outlier removal, target transformation, or feature eng
 | Model         |               MAE |               RMSE |              R² |
 | ------------- | ----------------: | -----------------: | --------------: |
 | Scaled Ridge  |   18,478.87 ± 924 | 33,619.59 ± 10,353 | 0.7937 ± 0.1605 |
-| Random Forest | 17,846.37 ± 1,819 |  30,273.87 ± 7,335 |     0.84 ± 0.10 |
+| Random Forest | 17,735.66 ± 1,791 |  30,194.23 ± 7,212 |     0.84 ± 0.10 |
 
-Random Forest improved mean MAE by approximately $633 and mean RMSE by approximately $3,346.
+Random Forest improved mean MAE by approximately $743 and mean RMSE by approximately $3,425.
 
 It also reduced RMSE and R² variability.
 
@@ -924,32 +930,28 @@ It also reduced RMSE and R² variability.
 
 * Actual: $160,000
 * Scaled Ridge prediction: $873,260
-* Random Forest prediction: $274,249
-* Random Forest absolute error: $114,249
+* Random Forest prediction: $588,331
+* Random Forest absolute error: $428,331
 
 ### Observation 523
 
 * Actual: $184,750
 * Scaled Ridge prediction: $617,423
-* Random Forest prediction: $296,911
-* Random Forest absolute error: $112,161
+* Random Forest prediction: $589,837
+* Random Forest absolute error: $405,087
 
 ### Observation 1324
 
 * Actual: $147,000
 * Scaled Ridge prediction: $293,774
-* Random Forest prediction: $207,417
-* Random Forest absolute error: $60,417
+* Random Forest prediction: $290,397
+* Random Forest absolute error: $143,397
 
 ## Interpretation
 
-Random Forest substantially reduced the errors on all three previously identified difficult observations.
+Random Forest still improves overall RMSE and R² relative to scaled raw-target Ridge. However, the genuine out-of-fold predictions show that it does not solve the extreme observations nearly as well as the earlier in-sample diagnostics suggested. It still substantially overpredicts indices 1298 and 523.
 
-The improvement was especially large for indices 1298 and 523.
-
-This supports the hypothesis that a major part of Ridge's instability resulted from linear extrapolation on unusual feature combinations.
-
-The difficult observations did not become easy, but their errors became much less extreme.
+This supports the hypothesis that model family changes behavior on unusual feature combinations, but it does not establish Random Forest as a complete solution to the high-leverage observations.
 
 An important tradeoff also appeared in Fold 3:
 
@@ -967,13 +969,13 @@ Random Forest:
 * improved overall CV performance,
 * improved mean R²,
 * reduced RMSE variability,
-* and dramatically reduced errors on the known high-leverage observations.
+* but still made very large out-of-fold errors on the known high-leverage observations.
 
 This provides evidence that choosing a model better suited to nonlinear relationships can address unusual observations without simply deleting them.
 
 ## Why We Moved On
 
-Random Forest established a stronger nonlinear baseline than Ridge.
+Random Forest established a stronger nonlinear baseline than Ridge on aggregate RMSE and R².
 
 The next question was whether a gradient-boosted tree model could improve typical prediction accuracy further while retaining similar robustness.
 
@@ -1057,7 +1059,7 @@ Default XGBoost hyperparameters were otherwise retained.
 | Model         |                   MAE |                  RMSE |              R² |
 | ------------- | --------------------: | --------------------: | --------------: |
 | Scaled Ridge  |       18,478.87 ± 924 |    33,619.59 ± 10,353 | 0.7937 ± 0.1605 |
-| Random Forest |     17,846.37 ± 1,819 | **30,273.87 ± 7,335** | **0.84 ± 0.10** |
+| Random Forest |     17,735.66 ± 1,791 | **30,194.23 ± 7,212** | **0.84 ± 0.10** |
 | XGBoost       | **17,550.49 ± 1,336** |     31,338.53 ± 7,202 |     0.83 ± 0.10 |
 
 XGBoost produced the best mean MAE so far.
@@ -1066,7 +1068,7 @@ However, Random Forest retained better:
 
 * mean RMSE,
 * mean R²,
-* and robustness on the known extreme observations.
+* and aggregate RMSE/R².
 
 This shows that the models have different error profiles rather than one being uniformly superior.
 
@@ -1096,13 +1098,11 @@ The diagnostic predictions were captured directly from the out-of-fold predictio
 
 | Index |   Actual | Scaled Ridge | Random Forest |  XGBoost |
 | ----- | -------: | -----------: | ------------: | -------: |
-| 1298  | $160,000 |     $873,260 |  **$274,249** | $606,205 |
-| 523   | $184,750 |     $617,423 |  **$296,911** | $671,884 |
-| 1324  | $147,000 |     $293,774 |  **$207,417** | $286,745 |
+| 1298  | $160,000 |     $873,260 | $588,331 | $606,205 |
+| 523   | $184,750 |     $617,423 | $589,837 | $671,884 |
+| 1324  | $147,000 |     $293,774 | $290,397 | **$286,745** |
 
-Random Forest was substantially more robust on all three observations.
-
-XGBoost behaved more similarly to Ridge on indices 1298 and 523, producing large overpredictions.
+Random Forest is slightly better on index 1298 and materially better on index 523. Raw XGBoost is slightly better on index 1324. Both models still produce large errors on the two most extreme observations.
 
 ## Interpretation
 
@@ -1110,7 +1110,7 @@ The hypothesis was only partially supported.
 
 XGBoost improved typical absolute-error performance and achieved the best mean MAE so far.
 
-However, it did not handle the previously identified high-leverage observations as effectively as Random Forest.
+However, it did not handle index 523 as effectively as Random Forest, while its result on index 1324 was slightly better.
 
 This explains the metric tradeoff:
 
@@ -1127,7 +1127,7 @@ XGBoost is a promising candidate but does not currently dominate Random Forest.
 
 At this stage:
 
-> **XGBoost provides the best typical absolute-error performance, while Random Forest provides the strongest robustness against extreme prediction errors.**
+> **XGBoost provides the best typical absolute-error performance, while Random Forest provides better aggregate RMSE and R².**
 
 No model should yet be selected as final.
 
@@ -1143,7 +1143,7 @@ No model should yet be selected as final.
 | Ridge, log-target CV     |     19,830 ± 6,018 |    63,083 ± 72,812 |  -0.664 ± 3.108 | `expm1` amplified extreme predictions |
 | Scaled Ridge, log target |     17,721 ± 4,425 |    55,665 ± 63,635 |  -0.282 ± 2.385 | Scaling helped, extreme rows remained |
 | Scaled Ridge, raw target |       18,479 ± 924 |    33,620 ± 10,353 |   0.794 ± 0.161 | Strongest stable Ridge                |
-| Random Forest            |     17,846 ± 1,819 | **30,274 ± 7,335** | **0.84 ± 0.10** | Best robustness so far                |
+| Random Forest            |     17,736 ± 1,791 | **30,194 ± 7,212** | **0.84 ± 0.10** | Best unfiltered RMSE/R²               |
 | XGBoost                  | **17,550 ± 1,336** |     31,339 ± 7,202 |     0.83 ± 0.10 | Best mean MAE so far                  |
 
 ---
@@ -1156,7 +1156,7 @@ The same unusual observations produced very different prediction errors dependin
 
 Ridge produced severe extrapolation.
 
-Random Forest handled the observations much more conservatively.
+Random Forest and XGBoost both still overpredicted the two most extreme observations.
 
 Baseline XGBoost still produced large overpredictions despite being nonlinear.
 
@@ -1166,7 +1166,7 @@ Therefore, simply describing a model as "tree-based" or "nonlinear" is insuffici
 
 XGBoost currently has the best MAE.
 
-Random Forest currently has the best RMSE and R².
+Random Forest currently has the best RMSE and R² among unfiltered models.
 
 This difference is meaningful rather than contradictory.
 
@@ -1359,15 +1359,15 @@ The diagnostic predictions were taken directly from the saved Fold 3 out-of-fold
 
 | Index |   Actual | Raw XGBoost Error | Log XGBoost Error | Random Forest Error |
 | ----- | -------: | ----------------: | ----------------: | ------------------: |
-| 1298  | $160,000 |          $446,205 |          $335,210 |        **$114,249** |
-| 523   | $184,750 |          $487,134 |          $454,924 |        **$112,161** |
-| 1324  | $147,000 |      **$139,745** |          $156,343 |         **$60,417** |
+| 1298  | $160,000 |          $446,205 |      **$335,210** |        $428,331 |
+| 523   | $184,750 |          $487,134 |          $454,924 |    **$405,087** |
+| 1324  | $147,000 |      **$139,745** |          $156,343 |        $143,397 |
 
 The log transformation reduced the extreme XGBoost errors for indices 1298 and 523.
 
 However, it did not solve the underlying problem, and observation 1324 became slightly worse.
 
-Random Forest remained substantially more robust on all three observations.
+Random Forest was materially better than raw XGBoost on index 523, slightly better on index 1298, and slightly worse on index 1324.
 
 ## Interpretation
 
@@ -1423,7 +1423,7 @@ The experiment was still useful because it demonstrated that target transformati
 | Ridge, log-target CV     |     19,830 ± 6,018 |    63,083 ± 72,812 |  -0.664 ± 3.108 | `expm1` amplified extreme predictions       |
 | Scaled Ridge, log target |     17,721 ± 4,425 |    55,665 ± 63,635 |  -0.282 ± 2.385 | Scaling helped, extreme rows remained       |
 | Scaled Ridge, raw target |       18,479 ± 924 |    33,620 ± 10,353 |   0.794 ± 0.161 | Strongest stable Ridge                      |
-| Random Forest            |     17,846 ± 1,819 | **30,274 ± 7,335** | **0.84 ± 0.10** | Best RMSE and extreme-row robustness        |
+| Random Forest            |     17,736 ± 1,791 | **30,194 ± 7,212** | **0.84 ± 0.10** | Best unfiltered RMSE and R²                 |
 | Raw-target XGBoost       | **17,550 ± 1,336** |     31,339 ± 7,202 |     0.83 ± 0.10 | Best mean MAE                               |
 | Log-target XGBoost       |     18,033 ± 1,579 |     32,225 ± 6,971 |     0.82 ± 0.08 | More robust on some extremes, worse overall |
 
@@ -1449,7 +1449,7 @@ Ridge produced severe extrapolation.
 
 Raw and log-target XGBoost still substantially overpredicted the two most extreme houses.
 
-Random Forest handled the same observations much more conservatively.
+Random Forest was better on some difficult observations, but all models still substantially overpredicted the two most extreme houses.
 
 Model architecture therefore has a large effect on behavior outside the typical feature distribution.
 
@@ -1457,7 +1457,7 @@ Model architecture therefore has a large effect on behavior outside the typical 
 
 Raw-target XGBoost currently has the best mean MAE.
 
-Random Forest currently has the best RMSE and R² and the smallest errors on the known extreme observations.
+Random Forest currently has the best unfiltered RMSE and R², but does not uniformly have the smallest error on the known extreme observations.
 
 This difference is meaningful.
 
@@ -1475,58 +1475,120 @@ Outlier removal should therefore be tested as a separate controlled experiment r
 
 ---
 
-# Current Status
+# 12. Training-Only Outlier Policy — `GrLivArea > 4000`
 
-The project has now compared:
+## Hypothesis
 
-1. linear regression with Ridge,
-2. Ridge with numerical scaling,
-3. log-target Ridge,
-4. Random Forest,
-5. raw-target XGBoost,
-6. log-target XGBoost.
+The two most extreme high-error observations also have extremely large `GrLivArea` values. This experiment tests whether excluding extremely large homes from model training improves generalization without making the validation population easier.
 
-The current strongest configurations are:
+## Rule and Methodology
 
-### Lowest mean MAE
+The rule was:
 
 ```text
-Raw-target XGBoost
-MAE: 17,550 ± 1,336
+GrLivArea > 4000
 ```
 
-### Lowest mean RMSE
+The rule uses only a predictor, not `SalePrice`, prediction error, or specific dataframe indices. Filtering was applied only within each training fold. Validation folds remained completely unchanged, so extreme homes remained in validation and still had to be predicted.
 
-```text
-Random Forest
-RMSE: 30,274 ± 7,335
-```
+The same folds, preprocessing, models, and hyperparameters as the corrected baselines were used. No target transformation, feature engineering, or tuning was introduced.
 
-### Highest mean R²
+Rows removed from training were:
 
-```text
-Random Forest
-R²: 0.84 ± 0.10
-```
+| Fold | Rows removed |
+| ---: | -----------: |
+| 1 | 3 |
+| 2 | 3 |
+| 3 | 2 |
+| 4 | 4 |
+| 5 | 4 |
 
-### Strongest robustness on known extreme observations
+## Fold-Level Results
 
-```text
-Random Forest
-```
+### Random Forest
 
-No hyperparameter tuning or feature engineering has yet been applied to the nonlinear models.
+| Fold | Baseline MAE / RMSE / R² | Filtered-training MAE / RMSE / R² |
+| ---: | ------------------------ | --------------------------------- |
+| 1 | 17,567.06 / 29,107.80 / 0.89 | 17,202.78 / 29,391.68 / 0.89 |
+| 2 | 17,198.17 / 25,996.57 / 0.90 | 17,309.91 / 26,579.03 / 0.90 |
+| 3 | 20,888.49 / 44,158.02 / 0.65 | 20,961.19 / 41,255.79 / 0.69 |
+| 4 | 17,694.34 / 27,933.19 / 0.88 | 18,051.80 / 28,161.35 / 0.87 |
+| 5 | 15,330.23 / 23,775.56 / 0.89 | 15,261.47 / 23,728.05 / 0.89 |
+
+### XGBoost
+
+| Fold | Baseline MAE / RMSE / R² | Filtered-training MAE / RMSE / R² |
+| ---: | ------------------------ | --------------------------------- |
+| 1 | 17,192.60 / 26,803.78 / 0.91 | 17,844.18 / 27,568.04 / 0.90 |
+| 2 | 17,080.02 / 28,989.19 / 0.88 | 17,603.02 / 27,100.54 / 0.89 |
+| 3 | 18,879.22 / 45,093.43 / 0.63 | 19,365.88 / 39,651.62 / 0.72 |
+| 4 | 19,128.35 / 31,099.73 / 0.85 | 18,113.98 / 29,293.74 / 0.86 |
+| 5 | 15,472.26 / 24,706.50 / 0.88 | 15,166.84 / 22,599.03 / 0.90 |
+
+## Overall Comparison
+
+| Configuration | MAE | RMSE | R² |
+| --- | ---: | ---: | ---: |
+| Random Forest baseline | 17,735.66 ± 1,791.40 | 30,194.23 ± 7,212.48 | 0.84 ± 0.10 |
+| Random Forest filtered | 17,757.43 ± 1,848.70 | 29,823.18 ± 6,022.08 | 0.85 ± 0.08 |
+| XGBoost baseline | **17,550.49 ± 1,335.94** | 31,338.53 ± 7,201.69 | 0.83 ± 0.10 |
+| XGBoost filtered | 17,618.78 ± 1,368.26 | **29,242.59 ± 5,654.73** | **0.85 ± 0.07** |
+
+## Fold 3 Diagnostics
+
+All values below are genuine Fold 3 out-of-fold predictions. The extreme homes remained in validation.
+
+| Index | Actual | RF baseline | RF filtered | XGBoost baseline | XGBoost filtered |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1298 | 160,000 | 588,331.29 (error 428,331.29) | 514,034.08 (error 354,034.08) | 606,205.38 (error 446,205.38) | 478,351.97 (error 318,351.97) |
+| 523 | 184,750 | 589,836.59 (error 405,086.59) | 508,486.67 (error 323,736.67) | 671,884.06 (error 487,134.06) | 546,355.25 (error 361,605.25) |
+| 1324 | 147,000 | 290,396.65 (error 143,396.65) | 284,210.11 (error 137,210.11) | 286,744.84 (error 139,744.84) | 295,660.25 (error 148,660.25) |
+
+## Interpretation
+
+Random Forest filtering left MAE essentially unchanged/slightly worse, improved RMSE modestly, increased mean R² from 0.84 to 0.85, and reduced RMSE/R² variability. Fold 3 extreme errors improved but remained large.
+
+XGBoost filtering increased MAE by about $68, but improved RMSE by about $2,096 and mean R² from 0.83 to 0.85. RMSE variability fell substantially. In Fold 3, RMSE improved from about $45,093 to $39,652 and R² from 0.63 to 0.72; errors on indices 1298 and 523 also decreased substantially.
+
+The training-only outlier policy therefore improves robustness, especially for XGBoost, without removing difficult observations from the prediction problem. It introduces a small MAE tradeoff while substantially improving XGBoost RMSE, R², and stability.
+
+## Methodology Lesson
+
+Experiment audits matter. The initial Random Forest experiment appeared more robust than it really was because `Id` was accidentally retained and its diagnostic predictions were in-sample. Correcting those issues changed the interpretation.
+
+This reinforces the need to:
+
+* check feature consistency across baselines,
+* use genuine out-of-fold predictions for diagnostics,
+* and verify that comparison scripts reproduce standalone baselines.
 
 ---
 
-# Next Question
+# Current Status
 
-The remaining extreme observations raise an important modeling question:
+The project has compared Ridge, scaled/log-target Ridge, corrected Random Forest, raw-target XGBoost, log-target XGBoost, and training-only `GrLivArea > 4000` filtering for Random Forest and XGBoost.
 
-> Are these observations legitimate examples that the models should learn to handle, or does a defensible outlier policy improve generalization for the intended prediction population?
+The current strongest results are:
 
-The next stage should test an explicit outlier policy as a controlled experiment.
+### Lowest Mean MAE
 
-The policy must be defined using a reproducible rule rather than simply deleting individual rows because they produced large validation errors.
+```text
+Raw-target XGBoost
+MAE: 17,550.49 ± 1,335.94
+```
 
-The experiment should compare the same model and validation framework with and without the policy before deciding whether any observations should be excluded.
+### Lowest Mean RMSE
+
+```text
+XGBoost with training-only GrLivArea > 4000 filtering
+RMSE: 29,242.59 ± 5,654.73
+```
+
+### Highest Mean R²
+
+```text
+XGBoost filtered: 0.85 ± 0.07
+Random Forest filtered: 0.85 ± 0.08
+```
+
+Filtered XGBoost currently provides the strongest RMSE/stability tradeoff, while raw-target XGBoost retains the lowest MAE. No final model has been selected, and no hyperparameter tuning or feature engineering has yet been applied to the nonlinear models.
