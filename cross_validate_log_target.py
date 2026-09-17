@@ -93,13 +93,15 @@ def cross_validate_log_target():
 
         # Store validation data for fold 3 diagnosis
         if fold == 3:
-            fold3_data.append({
-                'original_index': df.index[val_idx],
-                'actual': y_val_fold,
-                'predicted': y_pred,
-                'actual_log': y_val_fold_log,
-                'predicted_log': y_pred_log,
-            })
+            for i, idx in enumerate(val_idx):
+                fold3_data.append({
+                    'original_index': df.index[idx],
+                    'actual': y_val_fold.iloc[i],
+                    'predicted': y_pred.iloc[i],
+                    'absolute_error': abs(y_pred.iloc[i] - y_val_fold.iloc[i]),
+                    'actual_log': y_val_fold_log.iloc[i],
+                    'predicted_log': y_pred_log.iloc[i],
+                })
 
         # Print metrics for this fold
         print(f"Fold {fold}:")
@@ -139,19 +141,15 @@ def cross_validate_log_target():
         # Create dataframe for sorting
         fold3_df = pd.DataFrame(fold3_data)
         
-        # Calculate absolute errors
-        fold3_df['abs_error'] = fold3_df['predicted'] - fold3_df['actual']
-        fold3_df['abs_error'] = fold3_df['abs_error'].abs()
-        
         # Sort by absolute error descending
-        fold3_df = fold3_df.sort_values('abs_error', ascending=False)
+        fold3_df = fold3_df.sort_values('absolute_error', ascending=False)
         
         # Print top 10
         for idx, row in fold3_df.head(10).iterrows():
             print(f"Index: {row['original_index']}")
             print(f"  Actual SalePrice: {row['actual']:.2f}")
             print(f"  Predicted SalePrice: {row['predicted']:.2f}")
-            print(f"  Absolute Error: {row['abs_error']:.2f}")
+            print(f"  Absolute Error: {row['absolute_error']:.2f}")
             print(f"  Actual log1p(SalePrice): {row['actual_log']:.4f}")
             print(f"  Predicted log SalePrice: {row['predicted_log']:.4f}")
             print("-" * 80)
